@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const Produit = require('../models/Produit');
+const cloudinary = require('../config/cloudinary');
+const multer = require('multer');
+const { verifyToken } = require('../middleware/verifyToken');
+const upload = multer({ storage: multer.memoryStorage() });
+
+
 
 function parsePagination(req) {
   const page = Number(req.query.page) || 0;
@@ -43,15 +49,15 @@ router.post('/search', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
-  try{
-    const p = new Produit(req.body);
-    const saved = await p.save();
-    res.status(201).json({status:201, message: 'Produit saved successfully', data: saved});
-  }catch(err){
-    res.status(500).json({status:500, message: err.message});
-  }
-});
+// router.post('/', async (req, res) => {
+//   try{
+//     const p = new Produit(req.body);
+//     const saved = await p.save();
+//     res.status(201).json({status:201, message: 'Produit saved successfully', data: saved});
+//   }catch(err){
+//     res.status(500).json({status:500, message: err.message});
+//   }
+// });
 
 router.put('/:id', async (req, res) => {
   try{
@@ -72,5 +78,40 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({status:500, message: err.message});
   }
 });
+
+router.post('/',verifyToken, upload.single('image'), async (req, res) => {
+  try {
+
+    let imageUrl = null;
+
+    if (req.file) {
+      const result = await cloudinary.uploader.upload_stream(
+        { folder: "produits" },
+        async (error, result) => {
+          if (error) return res.status(500).json(error);
+
+          imageUrl = result.secure_url;
+
+          const produit = new Produit({
+            designation: req.body.designation,
+            type: req.body.type,
+            utilisateur: req.user.id,
+            image: imageUrl
+          });
+
+          await produit.save();
+          res.json(produit);
+        }
+      );
+
+      result.end(req.file.buffer);
+    }
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
 
 module.exports = router;

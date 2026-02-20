@@ -5,7 +5,7 @@ const MouvementProduitSchema = new mongoose.Schema({
   dateMouvement: {type: Date, required: true},
   typesMouvement: {type: Number, default: null},
   prixUnitaire: {type: Number, required: true},
-  salleBoutique: {type: mongoose.Schema.Types.ObjectId, ref: 'SalleBoutique', default: null},
+  UtilisateurBoutique: {type: mongoose.Schema.Types.ObjectId, ref: 'Utilisateur', default: null},
   UtilisateurDestinataire: {type: mongoose.Schema.Types.ObjectId, ref: 'Utilisateur', default: null},
   produit: {type: mongoose.Schema.Types.ObjectId, ref: 'Produit', default: null}
 }, {collection: 'mouvementProduit', timestamps: true});
