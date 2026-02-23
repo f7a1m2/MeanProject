@@ -5,6 +5,7 @@ const cloudinary = require('../config/cloudinary');
 const multer = require('multer');
 const { verifyToken } = require('../middleware/verifyToken');
 const upload = multer({ storage: multer.memoryStorage() });
+const PrixVenteProduit= require('../models/PrixVenteProduitParBoutique');
 
 
 
@@ -26,15 +27,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
-  try{
-    const p = await Produit.findById(req.params.id).exec();
-    if(!p) return res.status(404).json({status:404, message: 'Produit not found'});
-    res.status(200).json({status:200, message: 'Produit retrieved successfully', data: p});
-  }catch(err){
-    res.status(500).json({status:500, message: err.message});
-  }
-});
+
 
 router.post('/search', async (req, res) => {
   try {
@@ -94,7 +87,7 @@ router.post('/',verifyToken, upload.single('image'), async (req, res) => {
 
           const produit = new Produit({
             designation: req.body.designation,
-            type: req.body.type,
+            typeProduit: req.body.typeProduit,
             utilisateur: req.user.id,
             image: imageUrl
           });
@@ -110,6 +103,45 @@ router.post('/',verifyToken, upload.single('image'), async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Erreur serveur" });
+  }
+});
+
+// Route pour récupérer les produits avec leur dernier prix de vente
+router.get('/with-prix', async (req, res) => {
+  try {
+    // On récupère tous les produits
+    const produits = await Produit.find().lean();
+
+    // Pour chaque produit, on récupère le dernier prix
+    const produitsAvecPrix = await Promise.all(
+      produits.map(async produit => {
+        const dernierPrix = await PrixVenteProduit.findOne({ produit: produit._id })
+                              .sort({ createdAt: -1 }) // dernier prix
+                              .lean();
+        return {
+          ...produit,
+          dernierPrix: dernierPrix ? dernierPrix.prixVente : null
+        };
+      })
+    );
+
+    res.json({ status: 200, message: "Produits avec prix récupérés", data: produitsAvecPrix });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: 500, message: "Erreur serveur", err });
+  }
+});
+
+
+
+// Route pour récupérer un produit par ID
+router.get('/:id', async (req, res) => {
+  try{
+    const p = await Produit.findById(req.params.id).exec();
+    if(!p) return res.status(404).json({status:404, message: 'Produit not found'});
+    res.status(200).json({status:200, message: 'Produit retrieved successfully', data: p});
+  }catch(err){
+    res.status(500).json({status:500, message: err.message});
   }
 });
 

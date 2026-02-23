@@ -8,10 +8,38 @@ router.get('/', async (req, res) => {try {const {page, size} = parsePagination(r
 
 router.get('/:id', async (req,res)=>{ try{ const d=await PrixVenteProduitParBoutique.findById(req.params.id).populate('produitProduit salleBoutiqueSalleBoutique').exec(); if(!d) return res.status(404).json({status:404,message:'Not found'}); res.status(200).json({status:200,message:'PrixVenteProduitParBoutique retrieved successfully',data:d});}catch(err){res.status(500).json({status:500,message:err.message});}});
 
-router.post('/', async (req,res)=>{ try{ const obj=new PrixVenteProduitParBoutique(req.body); const s=await obj.save(); res.status(201).json({status:201,message:'PrixVenteProduitParBoutique saved successfully',data:s});}catch(err){res.status(500).json({status:500,message:err.message});}});
+// router.post('/', async (req,res)=>{ try{ const obj=new PrixVenteProduitParBoutique(req.body); const s=await obj.save(); res.status(201).json({status:201,message:'PrixVenteProduitParBoutique saved successfully',data:s});}catch(err){res.status(500).json({status:500,message:err.message});}});
 
 router.put('/:id', async (req,res)=>{ try{ const u=await PrixVenteProduitParBoutique.findByIdAndUpdate(req.params.id, req.body, {new:true}).exec(); if(!u) return res.status(404).json({status:404,message:'Not found'}); res.status(200).json({status:200,message:'PrixVenteProduitParBoutique updated successfully',data:u});}catch(err){res.status(500).json({status:500,message:err.message});}});
 
 router.delete('/:id', async (req,res)=>{ try{ const d=await PrixVenteProduitParBoutique.findByIdAndDelete(req.params.id).exec(); if(!d) return res.status(404).json({status:404,message:'Not found'}); res.status(200).json({status:200,message:'PrixVenteProduitParBoutique deleted successfully',data:null});}catch(err){res.status(500).json({status:500,message:err.message});}});
+
+
+// Route pour ajouter un prix de vente à un produit
+const { verifyToken } = require('../middleware/verifyToken');
+
+
+router.post('/', verifyToken, async (req, res) => {
+  try {
+    const { produitId, prixVente } = req.body;
+
+    if (!produitId || !prixVente) {
+      return res.status(400).json({ message: "Produit et prix obligatoires" });
+    }
+
+    const prix = new PrixVenteProduitParBoutique({
+      produit: produitId,
+      prixVente,
+        dateMiseAJour: Date.now()
+    });
+
+    await prix.save();
+
+    res.status(201).json({ message: "Prix ajouté avec succès", prix });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Erreur serveur", err });
+  }
+});
 
 module.exports = router;
