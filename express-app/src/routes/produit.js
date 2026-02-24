@@ -6,6 +6,7 @@ const multer = require('multer');
 const { verifyToken } = require('../middleware/verifyToken');
 const upload = multer({ storage: multer.memoryStorage() });
 const PrixVenteProduit= require('../models/PrixVenteProduitParBoutique');
+const MouvementProduit = require('../models/MouvementProduit');
 
 
 
@@ -131,6 +132,83 @@ router.get('/with-prix', async (req, res) => {
     res.status(500).json({ status: 500, message: "Erreur serveur", err });
   }
 });
+
+// Route pour récupérer les produits avec leur dernier prix de vente et stock actuel
+router.get('/with-prix2', async (req, res) => {
+  try {
+    // On récupère tous les produits
+    const produits = await Produit.find().lean();
+
+    const produitsAvecPrix = await Promise.all(
+      produits.map(async produit => {
+
+        // 🔹 Dernier prix
+        const dernierPrix = await PrixVenteProduit.findOne({ produit: produit._id })
+                              .sort({ createdAt: -1 })
+                              .lean();
+
+        // 🔹 Calcul du stock (entrees - sorties)
+        const mouvements = await MouvementProduit.aggregate([
+          { $match: { produit: produit._id } },
+          {
+            $group: {
+              _id: "$typesMouvement",
+              totalQuantite: { $sum: "$quantite" }
+            }
+          }
+        ]);
+
+        let totalEntree = 0;
+        let totalSortie = 0;
+
+        mouvements.forEach(m => {
+          if (m._id === 1) totalEntree = m.totalQuantite;
+          if (m._id === 2) totalSortie = m.totalQuantite;
+        });
+
+        const stockActuel = totalEntree - totalSortie;
+
+        return {
+          ...produit,
+          dernierPrix: dernierPrix ? dernierPrix.prixVente : null,
+          stockActuel
+        };
+      })
+    );
+
+    res.json({
+      status: 200,
+      message: "Produits avec prix et stock récupérés",
+      data: produitsAvecPrix
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      status: 500,
+      message: "Erreur serveur",
+      err
+    });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
