@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const CentreCommmercial = require('../models/CentreCommmercial');
+const CentreCommmercial = require('../models/CentreCommercial');
 const Batiment = require('../models/Batiment');
 const TypeBatiment = require('../models/TypeBatiment');
 
