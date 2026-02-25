@@ -6,7 +6,8 @@ const UtilisateurSchema = new mongoose.Schema({
   username: {type: String, required: true},
   type: {type: String, default: "client"},
   solde: {type: Number, default: 0},
-  password: {type: String, default: null}
+  password: {type: String, default: null},
+  idCentre: {type: mongoose.Schema.Types.ObjectId, ref: 'CentreCommmercial', default: null}
 }, {collection: 'utilisateur', timestamps: true});
 
 // Hash password avant sauvegarde

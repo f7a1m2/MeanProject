@@ -13,7 +13,29 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req,res)=>{ try{ const d=await Utilisateur.findById(req.params.id).exec(); if(!d) return res.status(404).json({status:404,message:'Not found'}); res.status(200).json({status:200,message:'Utilisateur retrieved successfully',data:d}); }catch(err){res.status(500).json({status:500,message:err.message});}});
 
-router.post('/', async (req,res)=>{ try{ const obj=new Utilisateur(req.body); const s=await obj.save(); res.status(201).json({status:201,message:'Utilisateur saved successfully',data:s}); }catch(err){res.status(500).json({status:500,message:err.message});}});
+router.post('/', async (req, res) => {
+  try {
+
+    // 🔹 Si ce n'est PAS l'utilisateur d'initialisation
+    if (req.body.username !== "box") {
+      if (req.body.idCentre === "") {
+        req.body.idCentre = null;
+      }
+    }
+
+    const obj = new Utilisateur(req.body);
+    const s = await obj.save();
+
+    res.status(201).json({
+      status: 201,
+      message: 'Utilisateur saved successfully',
+      data: s
+    });
+
+  } catch (err) {
+    res.status(500).json({ status: 500, message: err.message });
+  }
+});
 
 router.put('/:id', async (req,res)=>{ try{ const u=await Utilisateur.findByIdAndUpdate(req.params.id, req.body, {new:true}).exec(); if(!u) return res.status(404).json({status:404,message:'Not found'}); res.status(200).json({status:200,message:'Utilisateur updated successfully',data:u}); }catch(err){res.status(500).json({status:500,message:err.message});}});
 
