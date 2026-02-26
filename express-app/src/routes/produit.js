@@ -133,8 +133,73 @@ router.get('/with-prix', async (req, res) => {
   }
 });
 
-// Route pour récupérer les produits avec leur dernier prix de vente et stock actuel
-router.get('/with-prix2', async (req, res) => {
+// Route pour récupérer les produits avec leur dernier prix de vente et stock actuel par boutique
+router.get('/with-prix2', verifyToken, async (req, res) => {
+  try {
+
+    // 🔹 On récupère uniquement les produits de l'utilisateur connecté
+    const produits = await Produit.find({
+      utilisateur: req.user.id
+    }).lean();
+
+    const produitsAvecPrix = await Promise.all(
+      produits.map(async produit => {
+
+        // 🔹 Dernier prix
+        const dernierPrix = await PrixVenteProduit.findOne({
+          produit: produit._id
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+
+        // 🔹 Calcul du stock (entrees - sorties)
+        const mouvements = await MouvementProduit.aggregate([
+          { $match: { produit: produit._id } },
+          {
+            $group: {
+              _id: "$typesMouvement",
+              totalQuantite: { $sum: "$quantite" }
+            }
+          }
+        ]);
+
+        let totalEntree = 0;
+        let totalSortie = 0;
+
+        mouvements.forEach(m => {
+          if (m._id === 1) totalEntree = m.totalQuantite;
+          if (m._id === 2) totalSortie = m.totalQuantite;
+        });
+
+        const stockActuel = totalEntree - totalSortie;
+
+        return {
+          ...produit,
+          dernierPrix: dernierPrix ? dernierPrix.prixVente : null,
+          stockActuel
+        };
+      })
+    );
+
+    res.json({
+      status: 200,
+      message: "Produits de l'utilisateur récupérés",
+      data: produitsAvecPrix
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      status: 500,
+      message: "Erreur serveur",
+      err
+    });
+  }
+});
+
+
+
+router.get('/with-prix-client', async (req, res) => {
   try {
     // On récupère tous les produits
     const produits = await Produit.find().lean();
@@ -191,6 +256,7 @@ router.get('/with-prix2', async (req, res) => {
     });
   }
 });
+
 
 
 

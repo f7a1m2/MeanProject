@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const MouvementProduit = require('../models/MouvementProduit');
 const { verifyToken } = require('../middleware/verifyToken');
+const Produit = require('../models/Produit');
+const PrixVenteProduitParBoutique = require('../models/PrixVenteProduitParBoutique');
+const Utilisateur = require('../models/Utilisateur');
+const TransactionSolde = require('../models/TransactionSolde');
 
 
 const parsePagination = (req) => {const page = Number(req.query.page) || 0; const size = Number(req.query.size) || 10; return {page, size};};
@@ -46,4 +50,82 @@ router.post('/entree', verifyToken, async (req, res) => {
     res.status(500).json({ message: "Erreur serveur", err });
   }
 });
+
+
+
+// Route pour enregistrer un achat / sortie de produit et créer transaction
+router.post('/achat', verifyToken, async (req, res) => {
+  // console.log("Achat request user:", req.user);
+   try {
+    //  console.log("Achat request user:", req.user);
+    const { produitId, quantite,stockActuel } = req.body;
+
+    if (!produitId || !quantite) {
+      return res.status(400).json({ message: "Champs obligatoires manquants" });
+    }
+
+    //  Récupérer le produit pour son prix
+    const produit = await Produit.findById(produitId);
+    if (!produit) return res.status(404).json({ message: "Produit non trouvé" });
+
+    //  Récupérer le dernier prix
+    const dernierPrix = await PrixVenteProduitParBoutique.findOne({ produit: produitId })
+                              .sort({ createdAt: -1 });
+                              // console.log(`Dernier prix pour produit ${produitId}:`, dernierPrix);
+    if (!dernierPrix) return res.status(400).json({ message: "Prix du produit non défini" });
+
+    //  Vérifier le stock
+    
+    // console.log(`Stock actuel pour produit ${produitId}: ${stockActuel}`);
+    if (quantite > stockActuel) {
+      return res.status(400).json({ message: "Quantité supérieure au stock disponible" });
+    }
+
+    //  Vérifier le solde du client
+    const client = await Utilisateur.findById(req.user.id);
+    const totalPrix = dernierPrix.prixVente * quantite;
+    if (client.solde < totalPrix) {
+      return res.status(400).json({ message: "Solde insuffisant" });
+    }
+    // console.log(`Client ${client.nom} solde: ${client.solde}, total prix: ${totalPrix}`);
+
+    // 🔹 Créer le mouvement de sortie
+    const mouvement = new MouvementProduit({
+      quantite,
+      prixUnitaire: dernierPrix.prixVente,
+      dateMouvement: new Date(),
+      typesMouvement: 2, // 2 = SORTIE
+      produit: produitId,
+      UtilisateurDestinataire: req.user.id
+    });
+    await mouvement.save();
+
+    // 🔹 Mettre à jour le solde du client
+    client.solde -= totalPrix;
+    await client.save();
+
+    // 🔹 Créer la transaction de solde
+    const transaction = new TransactionSolde({
+      montant: totalPrix,
+      typeTransaction: 2, // 2 = sortie / achat
+      utilisateur: req.user.id
+    });
+    await transaction.save();
+
+    res.status(201).json({
+      message: "Achat effectué avec succès",
+      mouvement,
+      soldeRestant: client.solde
+    });
+
+  // 
+  } 
+  catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Erreur serveur", err });
+  }
+});
+
+
+
 module.exports = router;
