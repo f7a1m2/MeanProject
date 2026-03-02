@@ -6,13 +6,14 @@ const Produit = require('../models/Produit');
 const PrixVenteProduitParBoutique = require('../models/PrixVenteProduitParBoutique');
 const Utilisateur = require('../models/Utilisateur');
 const TransactionSolde = require('../models/TransactionSolde');
+const authMiddleware = require('../middleware/verifyToken');
 
 
 const parsePagination = (req) => {const page = Number(req.query.page) || 0; const size = Number(req.query.size) || 10; return {page, size};};
 
 router.get('/', async (req, res) => {try {const {page, size} = parsePagination(req); const skip = page * size; const data = await MouvementProduit.find().skip(skip).limit(size).populate('produitProduit').exec(); const total = await MouvementProduit.countDocuments(); res.status(200).json({status:200, message:'MouvementProduit retrieved successfully', data:{content:data, totalElements:total, totalPages:Math.ceil(total/size), pageNumber:page, pageSize:size}});} catch(err){ res.status(500).json({status:500, message:err.message});}});
 
-router.get('/:id', async (req,res)=>{ try{ const d=await MouvementProduit.findById(req.params.id).populate('produitProduit').exec(); if(!d) return res.status(404).json({status:404,message:'Not found'}); res.status(200).json({status:200,message:'MouvementProduit retrieved successfully',data:d});}catch(err){res.status(500).json({status:500,message:err.message});}});
+// router.get('/:id', async (req,res)=>{ try{ const d=await MouvementProduit.findById(req.params.id).populate('produitProduit').exec(); if(!d) return res.status(404).json({status:404,message:'Not found'}); res.status(200).json({status:200,message:'MouvementProduit retrieved successfully',data:d});}catch(err){res.status(500).json({status:500,message:err.message});}});
 
 router.post('/', async (req,res)=>{ try{ const obj=new MouvementProduit(req.body); const s=await obj.save(); res.status(201).json({status:201,message:'MouvementProduit saved successfully',data:s});}catch(err){res.status(500).json({status:500,message:err.message});}});
 
@@ -126,6 +127,25 @@ router.post('/achat', verifyToken, async (req, res) => {
   }
 });
 
+// GET /mouvementProduit/achat
+router.get('/achat',verifyToken, async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(400).json({ message: 'Utilisateur non authentifié' });
+    }
+
+    const achats = await MouvementProduit.find({
+         UtilisateurDestinataire: req.user.id
+       }).populate('produit')
+      .sort({ dateMouvement: -1 });
+
+
+    res.json(achats);
+  } catch (err) {
+    console.error('Erreur serveur:', err);
+    res.status(500).json({ message: 'Erreur serveur', error: err.message });
+  }
+});
 
 
 module.exports = router;
