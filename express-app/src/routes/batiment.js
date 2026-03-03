@@ -12,10 +12,49 @@ router.get('/', async (req, res) => {
   try {
     const {page, size} = parsePagination(req);
     const skip = page * size;
-    const data = await Batiment.find().skip(skip).limit(size).populate('centrecommercialCentreCommmercial typebatimentTypeBatiment').exec();
-    const total = await Batiment.countDocuments();
-    res.status(200).json({status: 200, message: 'Batiment retrieved successfully', data: {content: data, totalElements: total, totalPages: Math.ceil(total/size), pageNumber: page, pageSize: size}});
+    
+    // Construction dynamique du filtre
+    const filter = {};
+    
+    // Filtrer par centre commercial si présent dans la query string
+    if (req.query.centrecommercial) {
+      filter.centrecommercial = req.query.centrecommercial;
+    }
+    
+    // Filtrer par type de bâtiment si présent
+    if (req.query.typebatiment) {
+      filter.typebatiment = req.query.typebatiment;
+    }
+    
+    // Filtrer par désignation (recherche partielle)
+    if (req.query.designation) {
+      filter.designation = { $regex: req.query.designation, $options: 'i' };
+    }
+    
+    console.log('GET /batiments - Filtre:', filter);
+    
+    const data = await Batiment.find(filter)
+      .skip(skip)
+      .limit(size)
+      .populate('centrecommercial typebatiment')
+      .sort({ createdAt: -1 })
+      .exec();
+      
+    const total = await Batiment.countDocuments(filter);
+    
+    res.status(200).json({
+      status: 200, 
+      message: 'Batiments retrieved successfully', 
+      data: {
+        content: data, 
+        totalElements: total, 
+        totalPages: Math.ceil(total/size), 
+        pageNumber: page, 
+        pageSize: size
+      }
+    });
   } catch (err) {
+    console.error('Erreur GET /batiments:', err);
     res.status(500).json({status:500, message: err.message});
   }
 });
@@ -69,6 +108,36 @@ router.delete('/:id', async (req, res) => {
     if(!d) return res.status(404).json({status:404, message: 'Batiment not found'});
     res.status(200).json({status:200, message: 'Batiment deleted successfully', data: null});
   }catch(err){
+    res.status(500).json({status:500, message: err.message});
+  }
+});
+
+router.post('/search', async (req, res) => {
+  try {
+    const {page, size} = parsePagination(req);
+    const skip = page * size;
+    const filter = req.body || {};
+    
+    const data = await Batiment.find(filter)
+      .skip(skip)
+      .limit(size)
+      .populate('centrecommercial typebatiment')
+      .exec();
+      
+    const total = await Batiment.countDocuments(filter);
+    
+    res.status(200).json({
+      status:200, 
+      message: 'Batiments retrieved successfully', 
+      data: {
+        content: data, 
+        totalElements: total, 
+        totalPages: Math.ceil(total/size), 
+        pageNumber: page, 
+        pageSize: size
+      }
+    });
+  } catch (err) {
     res.status(500).json({status:500, message: err.message});
   }
 });
